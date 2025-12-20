@@ -1,0 +1,8 @@
+
+{
+  "name": "Clarify – Neuro-Symbolic Aphasia Translator",
+  "description": "An assistive translator for stroke survivors that converts fragmented speech into clear, polite, and complete intent-based sentences using Gemini models.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
