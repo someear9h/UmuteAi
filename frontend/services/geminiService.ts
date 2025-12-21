@@ -60,33 +60,51 @@ export const speakText = async (text: string): Promise<void> => {
     const data = await response.json();
     const base64Audio = data.audio_base64;
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    const audioBuffer = await decodeAudioData(decode(base64Audio), audioContext, 24000, 1);
+    // --- FIX STARTS HERE ---
+    
+    // 1. Convert Base64 -> ArrayBuffer (Standard MP3 file bytes)
+    const binaryString = atob(base64Audio);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    // 2. Use Native Browser Decoding (Handles MP3/WAV automatically)
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // This function automatically detects it's an MP3 and decodes it correctly
+    const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+    
+    // 3. Play it
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(audioContext.destination);
     source.start();
+    
+    // --- FIX ENDS HERE ---
+
   } catch (error) {
     console.error("Backend Speech Error:", error);
   }
 };
 
-// --- Utilities ---
-function decode(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-  return bytes;
-}
+// // --- Utilities ---
+// function decode(base64: string) {
+//   const binaryString = atob(base64);
+//   const len = binaryString.length;
+//   const bytes = new Uint8Array(len);
+//   for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+//   return bytes;
+// }
 
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-  }
-  return buffer;
-}
+// async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+//   const dataInt16 = new Int16Array(data.buffer);
+//   const frameCount = dataInt16.length / numChannels;
+//   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+//   for (let channel = 0; channel < numChannels; channel++) {
+//     const channelData = buffer.getChannelData(channel);
+//     for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+//   }
+//   return buffer;
+// }

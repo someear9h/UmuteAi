@@ -1,10 +1,15 @@
 import base64
 import json
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
 from core.config import settings
+from models.user_context import UserContext
+from db.database import get_db
+from sqlalchemy.orm import Session
+from gtts import gTTS
+import io
 
 router = APIRouter(
     prefix="/speech",
@@ -46,13 +51,25 @@ async def transcribe_audio(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/deduce-intent", response_model=IntentResponse)
-async def deduce_intent(request: TextRequest):
+async def deduce_intent(request: TextRequest, db: Session = Depends(get_db)):
+    
+    # get all content from the database about the user context
+    context_items = db.query(UserContext).all()
+
+    # FORMAT THIS INTO A STRING FOR AI 
+    user_context_str = ". ".join([f"{item.key} is {item.value}" for item in context_items])
+
     print(f"[2] Deducing intent for: {request.text}")
     try:
-        system_instruction = """You are an interpreter for a person with Aphasia. 
-        You will receive fragmented text. Output exactly 3 likely complete sentences.
+        system_instruction = f"""You are an interpreter for a person with Aphasia.
+        
+        IMPORTANT USER CONTEXT:
+        {user_context_str}
+        
+        Use this context to fill in missing details (names, places) if relevant.
+        Output exactly 3 likely complete sentences.
         Assume a polite, conversational tone suitable for adults.
-        Format your response as a JSON object with a key 'options' containing a list of strings."""
+        Format response as JSON: {{ "options": ["Sentence 1", "Sentence 2", "Sentence 3"] }}"""
 
         response = client.models.generate_content(
             model=MODEL_NAME,
@@ -81,23 +98,20 @@ async def deduce_intent(request: TextRequest):
 async def generate_speech(request: TextRequest):
     print(f"[3] Generating speech for: {request.text}")
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=request.text,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                            voice_name="Kore"
-                        )
-                    )
-                )
-            )
-        )
-        audio_part = response.candidates[0].content.parts[0]
-        base64_audio = base64.b64encode(audio_part.inline_data.data).decode("utf-8")
+        # 1. Generate Audio in Memory
+        tts = gTTS(text=request.text, lang='en', slow=False)
+
+        # 2. Save to Byte Buffer
+        mp3_fp = io.BytesIO()
+        tts.write_to_fp(mp3_fp)
+        mp3_fp.seek(0)
+
+        # 3. Convert to Base64
+        audio_bytes = mp3_fp.read()
+        base64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+
         return {"audio_base64": base64_audio}
+
     except Exception as e:
         print(f"❌ Speech Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
