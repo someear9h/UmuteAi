@@ -8,8 +8,9 @@ from core.config import settings
 from models.user_context import UserContext
 from db.database import get_db
 from sqlalchemy.orm import Session
-from gtts import gTTS
-import io
+from elevenlabs.client import ElevenLabs
+
+elevenlabs = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
 
 router = APIRouter(
     prefix="/speech",
@@ -23,6 +24,7 @@ MODEL_NAME = "gemini-2.5-flash-lite"
 # --- Schemas ---
 class TextRequest(BaseModel):
     text: str
+    voice_id: str="21m00Tcm4TlvDq8ikWAM" # default voice
 
 class IntentResponse(BaseModel):
     options: list[str]
@@ -96,22 +98,27 @@ async def deduce_intent(request: TextRequest, db: Session = Depends(get_db)):
 
 @router.post("/speak", response_model=AudioResponse)
 async def generate_speech(request: TextRequest):
-    print(f"[3] Generating speech for: {request.text}")
+    print(f"[3] Generating ElevenLabs Speech for: {request.text} (Voice: {request.voice_id})")
+    
     try:
-        # 1. Generate Audio in Memory
-        tts = gTTS(text=request.text, lang='en', slow=False)
+        # 3. Generate Audio Stream
+        # We do NOT use play(). We just want the data.
+        audio_generator = elevenlabs.text_to_speech.convert(
+            text=request.text,
+            voice_id=request.voice_id,
+            model_id="eleven_multilingual_v2",
+            output_format="mp3_44100_128"
+        )
 
-        # 2. Save to Byte Buffer
-        mp3_fp = io.BytesIO()
-        tts.write_to_fp(mp3_fp)
-        mp3_fp.seek(0)
+        # 4. Convert Generator to Bytes
+        # ElevenLabs returns a generator, so we must join the chunks into one file
+        audio_bytes = b"".join(audio_generator)
 
-        # 3. Convert to Base64
-        audio_bytes = mp3_fp.read()
+        # 5. Convert to Base64 for Frontend
         base64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-
+        
         return {"audio_base64": base64_audio}
 
     except Exception as e:
-        print(f"❌ Speech Error: {e}")
+        print(f"❌ ElevenLabs Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -47,12 +47,12 @@ export const deduceIntent = async (fragmentedText: string): Promise<IntentRespon
   }
 };
 
-export const speakText = async (text: string): Promise<void> => {
+export const speakText = async (text: string, voiceId: string = "21m00Tcm4TlvDq8ikWAM"): Promise<void> => {
   try {
     const response = await fetch(`${API_URL}/speak`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, voice_id: voiceId }),
     });
 
     if (!response.ok) throw new Error("Speech generation failed");

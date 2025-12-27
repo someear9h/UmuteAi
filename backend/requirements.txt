@@ -6,3 +6,4 @@ python-dotenv
 sqlalchemy
 pydantic-settings
 gTTS
+elevenlabs
