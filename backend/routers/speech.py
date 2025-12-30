@@ -10,12 +10,13 @@ from db.database import get_db
 from sqlalchemy.orm import Session
 from elevenlabs.client import ElevenLabs
 
-elevenlabs = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
 
 router = APIRouter(
     prefix="/speech",
     tags=["Speech Processing"]
 )
+
+elevenlabs = ElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
 
 # Initialize Gemini Client
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
