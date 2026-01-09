@@ -58,6 +58,7 @@ async def deduce_intent(request: TextRequest, db: Session = Depends(get_db)):
     
     # get all content from the database about the user context
     context_items = db.query(UserContext).all()
+    print("🔥 CONTEXT FROM DB:", [(c.key, c.value) for c in context_items])
 
     # FORMAT THIS INTO A STRING FOR AI 
     user_context_str = ". ".join([f"{item.key} is {item.value}" for item in context_items])

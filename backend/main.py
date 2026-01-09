@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from models.user_context import UserContext
 from core.config import settings
-from db.database import create_tables
+from db.database import SessionLocal, create_tables
 
 # Import our new speech router
 from routers import speech 
@@ -25,6 +26,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+def startup_event():
+    db = SessionLocal()
+
+    db.query(UserContext).delete()
+
+    db.add_all([
+        UserContext(key="coffee_preference", value="medium black coffee with no sugar"),
+        UserContext(key="spouse_name", value="Sarah"),
+        UserContext(key="dog_name", value="Buster"),
+    ])
+
+    db.commit()
+    db.close()
+
+    print("✅ User context seeded on startup")
 
 # Include the router
 app.include_router(speech.router, prefix=settings.API_PREFIX)

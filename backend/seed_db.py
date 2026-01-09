@@ -16,7 +16,8 @@ def seed_data():
         UserContext(key="spouse_name", value="Sarah"),
         UserContext(key="home_address", value="42 Wallaby Way, Sydney"),
         UserContext(key="dog_name", value="Buster"),
-        UserContext(key="emergency_contact", value="Dr. Smith at 555-0199")
+        UserContext(key="emergency_contact", value="Dr. Smith at 555-0199"),
+        UserContext(key="coffee_preference", value="medium black coffee with no sugar")
     ]
     
     db.add_all(facts)
